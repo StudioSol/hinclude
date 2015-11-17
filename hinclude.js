@@ -136,6 +136,9 @@ var hinclude,
         this.outstanding += 1;
         req.onreadystatechange = function () {
           incl_cb(element, req);
+          if (req.readyState === 4) {
+            hinclude.dispatch_loaded_event(element);
+          }
         };
         try {
           req.open('GET', url, true);
@@ -169,6 +172,20 @@ var hinclude,
       }
 
       this.include(element, url, media, incl_cb);
+    },
+
+    dispatch_loaded_event: function (element) {
+      var e;
+      try {
+        e = new CustomEvent('loaded', {
+          bubbles: false,
+          cancelable: false
+        });
+      } catch (err) {
+        e = document.createEvent('CustomEvent');
+        e.initEvent('loaded', false, false);
+      }
+      element.dispatchEvent(e);
     },
 
     refresh: function (element_id) {
