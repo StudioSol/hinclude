@@ -29,14 +29,13 @@ See http://mnot.github.com/hinclude/ for documentation.
 /*jslint indent: 2, browser: true, vars: true, nomen: true */
 /*global alert, ActiveXObject */
 
-var hinclude,
-  is_being_displayed;
+var hinclude;
 
 (function () {
 
   'use strict';
 
-  is_being_displayed = function (element, threshold) {
+  var is_being_displayed = function (element, threshold) {
     var coordinates = element.getBoundingClientRect();
     return (
       coordinates.top >= 0 && coordinates.left >= 0 &&
