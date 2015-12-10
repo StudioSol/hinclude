@@ -155,22 +155,21 @@ var hinclude;
       delete element.dataset.lazy;
       delete element.dataset.threshold;
 
-      if (!is_being_displayed(element)) {
-        var that = this;
-        var load_listener = function () {
-          if (is_being_displayed(element, threshold)) {
-            window.removeEventListener('scroll', load_listener);
-            window.removeEventListener('resize', load_listener);
-            that.include(element, url, media, incl_cb);
-          }
-        };
-        window.addEventListener('scroll', load_listener);
-        window.addEventListener('resize', load_listener);
-
+      if (is_being_displayed(element, threshold)) {
+        this.include(element, url, media, incl_cb);
         return;
       }
 
-      this.include(element, url, media, incl_cb);
+      var that = this;
+      var load_listener = function () {
+        if (is_being_displayed(element, threshold)) {
+          window.removeEventListener('scroll', load_listener);
+          window.removeEventListener('resize', load_listener);
+          that.include(element, url, media, incl_cb);
+        }
+      };
+      window.addEventListener('scroll', load_listener);
+      window.addEventListener('resize', load_listener);
     },
 
     dispatch_loaded_event: function (element) {
