@@ -152,8 +152,8 @@ var hinclude;
     lazy: function (element, url, media, incl_cb) {
       var threshold = +element.dataset.threshold || 0;
 
-      delete element.dataset.lazy;
-      delete element.dataset.threshold;
+      if (element.dataset.lazy) delete element.dataset.lazy;
+			if (element.dataset.treshhold) delete element.dataset.threshold;
 
       if (is_being_displayed(element, threshold)) {
         this.include(element, url, media, incl_cb);
