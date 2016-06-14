@@ -31,253 +31,254 @@ See http://mnot.github.com/hinclude/ for documentation.
 
 var hinclude;
 
-(function () {
+(function() {
 
-  'use strict';
+	'use strict';
 
-  var is_being_displayed = function (element, threshold) {
-    var coordinates = element.getBoundingClientRect();
-    return (
-      coordinates.top >= 0 && coordinates.left >= 0 &&
-      (coordinates.top - threshold) <= (window.innerHeight || document.documentElement.clientHeight)
-    );
-  };
+	var is_being_displayed = function(element, threshold) {
+		var coordinates = element.getBoundingClientRect();
+		return (
+			coordinates.top >= 0 && coordinates.left >= 0 &&
+			(coordinates.top - threshold) <= (window.innerHeight || document.documentElement.clientHeight)
+		);
+	};
 
-  hinclude = {
-    classprefix: 'include_',
+	hinclude = {
+		classprefix: 'include_',
 
-    set_content_async: function (element, req) {
-      if (req.readyState === 4) {
-        if (req.status === 200 || req.status === 304) {
-          element.innerHTML = req.responseText;
-        }
-        element.className = hinclude.classprefix + req.status;
-      }
-    },
+		set_content_async: function(element, req) {
+			if (req.readyState === 4) {
+				if (req.status === 200 || req.status === 304) {
+					element.innerHTML = req.responseText;
+				}
+				element.className = hinclude.classprefix + req.status;
+			}
+		},
 
-    buffer: [],
-    set_content_buffered: function (element, req) {
-      if (req.readyState === 4) {
-        hinclude.buffer.push([element, req]);
-        hinclude.outstanding -= 1;
-        if (hinclude.outstanding === 0) {
-          hinclude.show_buffered_content();
-        }
-      }
-    },
+		buffer: [],
+		set_content_buffered: function(element, req) {
+			if (req.readyState === 4) {
+				hinclude.buffer.push([element, req]);
+				hinclude.outstanding -= 1;
+				if (hinclude.outstanding === 0) {
+					hinclude.show_buffered_content();
+				}
+			}
+		},
 
-    show_buffered_content: function () {
-      var include;
-      while (hinclude.buffer.length > 0) {
-        include = hinclude.buffer.pop();
-        if (include[1].status === 200 || include[1].status === 304) {
-          include[0].innerHTML = include[1].responseText;
-        }
-        include[0].className = hinclude.classprefix + include[1].status;
-      }
-    },
+		show_buffered_content: function() {
+			var include;
+			while (hinclude.buffer.length > 0) {
+				include = hinclude.buffer.pop();
+				if (include[1].status === 200 || include[1].status === 304) {
+					include[0].innerHTML = include[1].responseText;
+				}
+				include[0].className = hinclude.classprefix + include[1].status;
+			}
+		},
 
-    outstanding: 0,
-    includes: [],
-    run: function () {
-      var i = 0;
-      var mode = this.get_meta('include_mode', 'buffered');
-      var callback;
-      this.includes = document.getElementsByTagName('hx:include');
-      if (this.includes.length === 0) { // remove ns for IE
-        this.includes = document.getElementsByTagName('include');
-      }
-      if (mode === 'async') {
-        callback = this.set_content_async;
-      } else if (mode === 'buffered') {
-        callback = this.set_content_buffered;
-        var timeout = this.get_meta('include_timeout', 2.5) * 1000;
-        setTimeout(hinclude.show_buffered_content, timeout);
-      }
+		outstanding: 0,
+		includes: [],
+		run: function() {
+			var i = 0;
+			var mode = this.get_meta('include_mode', 'buffered');
+			var callback;
+			this.includes = document.getElementsByTagName('hx:include');
+			if (this.includes.length === 0) { // remove ns for IE
+				this.includes = document.getElementsByTagName('include');
+			}
+			if (mode === 'async') {
+				callback = this.set_content_async;
+			} else if (mode === 'buffered') {
+				callback = this.set_content_buffered;
+				var timeout = this.get_meta('include_timeout', 2.5) * 1000;
+				setTimeout(hinclude.show_buffered_content, timeout);
+			}
 
-      for (i; i < this.includes.length; i += 1) {
-        this.include(this.includes[i], this.includes[i].getAttribute('src'), this.includes[i].getAttribute('media'), callback);
-      }
-    },
+			for (i; i < this.includes.length; i += 1) {
+				this.include(this.includes[i], this.includes[i].getAttribute('src'), this.includes[i].getAttribute('media'), callback);
+			}
+		},
 
-    include: function (element, url, media, incl_cb) {
-      if (media && window.matchMedia && !window.matchMedia(media).matches) {
-        return;
-      }
+		include: function(element, url, media, incl_cb) {
+			if (media && window.matchMedia && !window.matchMedia(media).matches) {
+				return;
+			}
 
-      if (element.dataset.lazy === 'true') {
-        this.lazy(element, url, media, incl_cb);
-        return;
-      }
+			if (element.dataset.lazy === 'true') {
+				this.lazy(element, url, media, incl_cb);
+				return;
+			}
 
-      var scheme = url.substring(0, url.indexOf(':'));
-      if (scheme.toLowerCase() === 'data') { // just text/plain for now
-        var data = decodeURIComponent(url.substring(url.indexOf(',') + 1, url.length));
-        element.innerHTML = data;
-        return;
-      }
+			var scheme = url.substring(0, url.indexOf(':'));
+			if (scheme.toLowerCase() === 'data') { // just text/plain for now
+				var data = decodeURIComponent(url.substring(url.indexOf(',') + 1, url.length));
+				element.innerHTML = data;
+				return;
+			}
 
-      var req = false;
-      if (window.XMLHttpRequest) {
-        try {
-          req = new XMLHttpRequest();
-        } catch (e1) {
-          req = false;
-        }
-      } else if (window.ActiveXObject) {
-        try {
-          req = new ActiveXObject('Microsoft.XMLHTTP');
-        } catch (e2) {
-          req = false;
-        }
-      }
-      if (req) {
-        this.outstanding += 1;
-        req.onreadystatechange = function () {
-          incl_cb(element, req);
-          if (req.readyState === 4) {
-            hinclude.dispatch_loaded_event(element);
-          }
-        };
-        try {
-          req.open('GET', url, true);
-          req.send('');
-        } catch (e3) {
-          this.outstanding -= 1;
-          alert('Include error: ' + url + ' (' + e3 + ')');
-        }
-      }
-    },
+			var req = false;
+			if (window.XMLHttpRequest) {
+				try {
+					req = new XMLHttpRequest();
+				} catch (e1) {
+					req = false;
+				}
+			} else if (window.ActiveXObject) {
+				try {
+					req = new ActiveXObject('Microsoft.XMLHTTP');
+				} catch (e2) {
+					req = false;
+				}
+			}
+			if (req) {
+				this.outstanding += 1;
+				req.onreadystatechange = function() {
+					incl_cb(element, req);
+					if (req.readyState === 4) {
+						hinclude.dispatch_loaded_event(element);
+					}
+				};
+				try {
+					req.open('GET', url, true);
+					req.setRequestHeader('X-Hinclude-Requested-With', 'XMLHttpRequest');
+					req.send('');
+				} catch (e3) {
+					this.outstanding -= 1;
+					alert('Include error: ' + url + ' (' + e3 + ')');
+				}
+			}
+		},
 
-    lazy: function (element, url, media, incl_cb) {
-      var threshold = +element.dataset.threshold || 0;
+		lazy: function(element, url, media, incl_cb) {
+			var threshold = +element.dataset.threshold || 0;
 
-      if (element.dataset.lazy) delete element.dataset.lazy;
+			if (element.dataset.lazy) delete element.dataset.lazy;
 			if (element.dataset.treshhold) delete element.dataset.threshold;
 
-      if (is_being_displayed(element, threshold)) {
-        this.include(element, url, media, incl_cb);
-        return;
-      }
+			if (is_being_displayed(element, threshold)) {
+				this.include(element, url, media, incl_cb);
+				return;
+			}
 
-      var that = this;
-      var load_listener = function () {
-        if (is_being_displayed(element, threshold)) {
-          window.removeEventListener('scroll', load_listener);
-          window.removeEventListener('resize', load_listener);
-          that.include(element, url, media, incl_cb);
-        }
-      };
-      window.addEventListener('scroll', load_listener);
-      window.addEventListener('resize', load_listener);
-    },
+			var that = this;
+			var load_listener = function() {
+				if (is_being_displayed(element, threshold)) {
+					window.removeEventListener('scroll', load_listener);
+					window.removeEventListener('resize', load_listener);
+					that.include(element, url, media, incl_cb);
+				}
+			};
+			window.addEventListener('scroll', load_listener);
+			window.addEventListener('resize', load_listener);
+		},
 
-    dispatch_loaded_event: function (element) {
-      var e;
-      try {
-        e = new CustomEvent('loaded', {
-          bubbles: false,
-          cancelable: false
-        });
-      } catch (err) {
-        e = document.createEvent('CustomEvent');
-        e.initEvent('loaded', false, false);
-      }
-      element.dispatchEvent(e);
-    },
+		dispatch_loaded_event: function(element) {
+			var e;
+			try {
+				e = new CustomEvent('loaded', {
+					bubbles: false,
+					cancelable: false
+				});
+			} catch (err) {
+				e = document.createEvent('CustomEvent');
+				e.initEvent('loaded', false, false);
+			}
+			element.dispatchEvent(e);
+		},
 
-    refresh: function (element_id) {
-      var i = 0;
-      var callback;
-      callback = this.set_content_buffered;
-      for (i; i < this.includes.length; i += 1) {
-        if (this.includes[i].getAttribute('id') === element_id) {
-          this.include(this.includes[i], this.includes[i].getAttribute('src'), this.includes[i].getAttribute('media'), callback);
-        }
-      }
-    },
+		refresh: function(element_id) {
+			var i = 0;
+			var callback;
+			callback = this.set_content_buffered;
+			for (i; i < this.includes.length; i += 1) {
+				if (this.includes[i].getAttribute('id') === element_id) {
+					this.include(this.includes[i], this.includes[i].getAttribute('src'), this.includes[i].getAttribute('media'), callback);
+				}
+			}
+		},
 
-    get_meta: function (name, value_default) {
-      var m = 0;
-      var metas = document.getElementsByTagName('meta');
-      var meta_name;
-      for (m; m < metas.length; m += 1) {
-        meta_name = metas[m].getAttribute('name');
-        if (meta_name === name) {
-          return metas[m].getAttribute('content');
-        }
-      }
-      return value_default;
-    },
+		get_meta: function(name, value_default) {
+			var m = 0;
+			var metas = document.getElementsByTagName('meta');
+			var meta_name;
+			for (m; m < metas.length; m += 1) {
+				meta_name = metas[m].getAttribute('name');
+				if (meta_name === name) {
+					return metas[m].getAttribute('content');
+				}
+			}
+			return value_default;
+		},
 
-    /*
-     * (c)2006 Dean Edwards/Matthias Miller/John Resig
-     * Special thanks to Dan Webb's domready.js Prototype extension
-     * and Simon Willison's addLoadEvent
-     *
-     * For more info, see:
-     * http://dean.edwards.name/weblog/2006/06/again/
-     *
-     * Thrown together by Jesse Skinner (http://www.thefutureoftheweb.com/)
-     */
-    addDOMLoadEvent: function (func) {
-      if (!window.__load_events) {
-        var init = function () {
-          var i = 0;
-          // quit if this function has already been called
-          if (hinclude.addDOMLoadEvent.done) {
-            return;
-          }
-          hinclude.addDOMLoadEvent.done = true;
-          if (window.__load_timer) {
-            clearInterval(window.__load_timer);
-            window.__load_timer = null;
-          }
-          for (i; i < window.__load_events.length; i += 1) {
-            window.__load_events[i]();
-          }
-          window.__load_events = null;
-          // clean up the __ie_onload event
-          /*@cc_on
-          document.getElementById("__ie_onload").onreadystatechange = "";
-          @*/
-        };
-        // for Mozilla/Opera9
-        if (document.addEventListener) {
-          document.addEventListener('DOMContentLoaded', init, false);
-        }
-        // for Internet Explorer
-        /*@cc_on
-        document.write(
-          "<scr"
-            + "ipt id=__ie_onload defer src='//:'><\/scr"
-            + "ipt>"
-        );
-        var script = document.getElementById("__ie_onload");
-        script.onreadystatechange = function () {
-          if (this.readyState === "complete") {
-            init(); // call the onload handler
-          }
-        };
-        @*/
-        // for Safari
-        if (/WebKit/i.test(navigator.userAgent)) { // sniff
-          window.__load_timer = setInterval(function () {
-            if (/loaded|complete/.test(document.readyState)) {
-              init();
-            }
-          }, 10);
-        }
-        // for other browsers
-        window.onload = init;
-        window.__load_events = [];
-      }
-      window.__load_events.push(func);
-    }
-  };
+		/*
+		 * (c)2006 Dean Edwards/Matthias Miller/John Resig
+		 * Special thanks to Dan Webb's domready.js Prototype extension
+		 * and Simon Willison's addLoadEvent
+		 *
+		 * For more info, see:
+		 * http://dean.edwards.name/weblog/2006/06/again/
+		 *
+		 * Thrown together by Jesse Skinner (http://www.thefutureoftheweb.com/)
+		 */
+		addDOMLoadEvent: function(func) {
+			if (!window.__load_events) {
+				var init = function() {
+					var i = 0;
+					// quit if this function has already been called
+					if (hinclude.addDOMLoadEvent.done) {
+						return;
+					}
+					hinclude.addDOMLoadEvent.done = true;
+					if (window.__load_timer) {
+						clearInterval(window.__load_timer);
+						window.__load_timer = null;
+					}
+					for (i; i < window.__load_events.length; i += 1) {
+						window.__load_events[i]();
+					}
+					window.__load_events = null;
+					// clean up the __ie_onload event
+					/*@cc_on
+					document.getElementById("__ie_onload").onreadystatechange = "";
+					@*/
+				};
+				// for Mozilla/Opera9
+				if (document.addEventListener) {
+					document.addEventListener('DOMContentLoaded', init, false);
+				}
+				// for Internet Explorer
+				/*@cc_on
+				document.write(
+				  "<scr"
+				    + "ipt id=__ie_onload defer src='//:'><\/scr"
+				    + "ipt>"
+				);
+				var script = document.getElementById("__ie_onload");
+				script.onreadystatechange = function () {
+				  if (this.readyState === "complete") {
+				    init(); // call the onload handler
+				  }
+				};
+				@*/
+				// for Safari
+				if (/WebKit/i.test(navigator.userAgent)) { // sniff
+					window.__load_timer = setInterval(function() {
+						if (/loaded|complete/.test(document.readyState)) {
+							init();
+						}
+					}, 10);
+				}
+				// for other browsers
+				window.onload = init;
+				window.__load_events = [];
+			}
+			window.__load_events.push(func);
+		}
+	};
 
-  hinclude.addDOMLoadEvent(function () {
-    hinclude.run();
-  });
+	hinclude.addDOMLoadEvent(function() {
+		hinclude.run();
+	});
 
 }());
